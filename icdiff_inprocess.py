@@ -12,6 +12,12 @@ Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006 Python Software Foundation; All
 Based on Python's difflib.HtmlDiff, with changes to provide console output instead of
 html output.  """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
+import io
 import os
 import sys
 import errno
@@ -425,7 +431,7 @@ class MultipleOption(Option):
             Option.take_action(self, action, dest, opt, value, values, parser)
 
 
-def start():
+def make_parser():
     # If you change any of these, also update README.
     parser = OptionParser(usage="usage: %prog [options] left_file right_file",
                           version="icdiff version %s" % __version__,
@@ -484,7 +490,17 @@ def start():
                       action="store_true",
                       help="show the whole file instead of just changed "
                       "lines and context")
+    return parser
 
+
+def make_options(args=()):
+    parser = make_parser()
+    options, args = parser.parse_args(list(args))
+    return options
+
+
+def start():
+    parser = make_parser()
     (options, args) = parser.parse_args()
 
     if len(args) != 2:
@@ -518,6 +534,18 @@ def codec_print(s, options):
         sys.stdout.buffer.write(s.encode(options.output_encoding))
     else:
         sys.stdout.write(s.encode(options.output_encoding))
+
+
+def codec_write(stream, s, output_encoding):
+    s = "%s\n" % s
+    encoded = s.encode(output_encoding)
+    if hasattr(stream, "buffer"):
+        stream.buffer.write(encoded)
+    else:
+        try:
+            stream.write(encoded)
+        except TypeError:
+            stream.write(s)
 
 
 def diff(options, a, b):
@@ -598,6 +626,36 @@ def diff_files(options, a, b):
             numlines=int(options.unified)):
         codec_print(line, options)
         sys.stdout.flush()
+
+
+def diff_text(
+        a,
+        b,
+        nr_cols=80,
+        show_all_spaces=False,
+        highlight=False,
+        bold=False,
+        tabsize=4,
+        whole_file=True,
+        unified=5,
+):
+    lines_a = a.splitlines(True)
+    lines_b = b.splitlines(True)
+
+    cd = ConsoleDiff(cols=int(nr_cols),
+                     show_all_spaces=show_all_spaces,
+                     highlight=highlight,
+                     no_bold=not bold,
+                     line_numbers=False,
+                     tabsize=tabsize)
+    output = io.StringIO()
+    for line in cd.make_table(
+            lines_a, lines_b, 'expected', 'got',
+            context=not whole_file,
+            numlines=unified):
+        codec_write(output, line, 'utf-8')
+    return output.getvalue()
+
 
 if __name__ == "__main__":
     try:

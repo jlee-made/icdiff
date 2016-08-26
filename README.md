@@ -1,6 +1,8 @@
-# Icdiff
+# icdiff_inprocess
 
-Improved colored diff
+Fork of improved colored diff.
+
+This fork is a quick hack for use with icdiff-expects.
 
 ## Installation
 
